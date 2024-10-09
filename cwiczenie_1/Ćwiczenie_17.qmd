@@ -2,6 +2,7 @@
 title: "Ćwiczenie 1.7"
 format: html
 editor: visual
+author: "Gabriel Rączkowski 416529"
 ---
 
 ```{r}
