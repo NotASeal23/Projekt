@@ -1,0 +1,97 @@
+---
+title: "Ćwiczenie 1.7"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidymodels)
+library(parsnip)
+library(rstanarm)
+library(readr)      
+library(broom.mixed) 
+library(dotwhisker)  
+
+colnames(airquality) <- tolower(colnames(airquality))
+
+corc <-
+  airquality |>
+  as_tibble() |>
+  na.omit() |> 
+  select(-c(day)) 
+cor(corc) # sprawdzam korelacje, aby usunąć ewentualne skorelowane czynniki
+# temp i wind są ujemnie skorelowane, nie bede bral w dalszych krokach wind pod uwage w regresji
+
+air <-
+  airquality |>
+  as_tibble() |>
+  na.omit() |> 
+  select(-day) |> 
+  mutate(month = factor(month)) 
+
+
+air %>%
+  ggplot(aes(
+    x = temp,
+    y = ozone,
+    col = month,
+    group = month
+  )) +
+  geom_point() +
+  geom_smooth(method = lm, se = F) +
+  scale_color_viridis_d(option = "C", end = .9)
+
+glimpse(air)
+
+GGally::ggpairs(air)
+#ozone ~ temp + solar.r + month - przyjme taki model
+
+
+lm_mod <- 
+  linear_reg() |> 
+  set_engine("lm") #uzywamy lm, jest to metoda najmniejszych kwadratow
+
+lm_fit <-  
+  lm_mod |>
+  fit(ozone ~ temp + solar.r + month, data = air)
+lm_fit 
+
+lm_fit$fit |> summary()
+
+
+lm_fit |> 
+  tidy() |> 
+  dwplot(vline = geom_vline(xintercept = 0, color = "grey50", linetype = 2), 
+         dot_args = list(size = 2, color = "black"), 
+         whisker_args = list(color = "black")) +
+  theme_bw()
+
+added_point = expand.grid(temp = seq(40,100,5),month = c(5,6,7,8,9),solar.r = seq(5,355,10))
+
+mean_pred <- predict(object = lm_fit, new_data = added_point)
+
+
+conf_pred <- predict(object = lm_fit, new_data = added_point, type = "conf_int")
+
+
+lm_pred <- 
+  added_point |> 
+  bind_cols(mean_pred) |> 
+  bind_cols(conf_pred)
+
+
+
+lm_pred |>
+  ggplot(aes(x = temp,
+             y = .pred)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = .pred_lower,
+                    ymax = .pred_upper),
+                width = 0.2) +
+  facet_wrap(~ month) +
+  theme_bw()+
+  labs(y = "ozone")
+
+
+
+```
