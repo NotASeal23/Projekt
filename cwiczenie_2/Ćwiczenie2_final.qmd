@@ -1,0 +1,41 @@
+---
+title: "Ćwiczenie2"
+author: "Gabriel Rączkowski 416529"
+format: html
+editor: visual
+self-contained: true
+---
+```{r}
+#
+library(tidymodels) 
+library(skimr) 
+library(GGally) 
+library(openair) 
+tidymodels_prefer()
+```
+
+
+```{r}
+{r}
+air <- mydata |> selectByDate(year = 2004) 
+air |> skim()
+air |> glimpse()
+```
+
+
+```{r}
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
