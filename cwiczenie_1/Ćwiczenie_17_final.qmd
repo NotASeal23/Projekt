@@ -3,6 +3,7 @@ title: "Ćwiczenie 1.7"
 format: html
 editor: visual
 author: "Gabriel Rączkowski 416529"
+self-contained: true
 ---
 
 ```{r}
@@ -13,6 +14,7 @@ library(readr)
 library(broom.mixed) 
 library(dotwhisker)  
 ```
+
 ```{r}
 colnames(airquality) <- tolower(colnames(airquality))
 data = airquality
@@ -52,7 +54,6 @@ glimpse(data)
 data = as.data.frame(data)
 GGally::ggpairs(data)
 ```
-
 
 ```{r}
 mask = caTools::sample.split(t(data[,1]),SplitRatio = 3/4)
