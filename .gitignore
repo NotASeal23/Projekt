@@ -1,4 +1,4 @@
 .Rhistory
-.Ćwiczenie_17.qmd
-.Ćwiczenie_17_final
-*files
+/.quarto/
+*.html
+.Rapp.history
