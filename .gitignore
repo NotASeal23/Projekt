@@ -1,4 +1,12 @@
-.Rhistory
 /.quarto/
 /*/*.html
 .Rapp.history
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+*.html
+*.RData
+*.csv
+/.quarto/
