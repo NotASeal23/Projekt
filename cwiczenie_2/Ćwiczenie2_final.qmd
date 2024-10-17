@@ -1,41 +1,169 @@
 ---
-title: "Ćwiczenie2"
-author: "Gabriel Rączkowski 416529"
+title: "Ćwiczenie_2"
+author: "Gabriel Rączkowski"
 format: html
 editor: visual
-self-contained: true
 ---
+
 ```{r}
-#
+#include
 library(tidymodels) 
 library(skimr) 
 library(GGally) 
 library(openair) 
 tidymodels_prefer()
+
 ```
 
-
 ```{r}
-{r}
+#ogladamy dane
 air <- mydata |> selectByDate(year = 2004) 
 air |> skim()
 air |> glimpse()
+
+
+corcc <-
+  air |>
+  as_tibble() |>
+  na.omit() |> 
+  select(-c(date)) 
+cor(corcc) # sprawdzam korelacje
+
+#wysoka korelacje maja:
+# no2 oraz nox z większością parametrów
+
 ```
+
+```{r}
+air <- air |> na.omit()
+
+set.seed(222)
+air[sample(1:nrow(air), size = 300, replace = F),] |> 
+  select(nox, no2) |> 
+  ggpairs()
+```
+
+```{r}
+library(ggpubr)
+# wykres regresji liniowej, do sprawdzenia danych 
+set.seed(222)
+air[sample(1:nrow(air), size = 300, replace = F),] |> 
+  select(nox, no2) |> 
+  ggplot(aes(nox, no2)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = T, formula = y ~ x) + 
+  stat_cor(label.x = 10, label.y = 80) + 
+  stat_regline_equation(label.x = 10, label.y = 82) +
+  theme_bw()
+```
+```{r}
+air |>    
+  ggplot(aes(date, o3)) +     
+  geom_line() +     
+  theme_bw()
+
+air |> 
+  pull(o3) |> 
+  range() 
+
+
+air <-
+  air |>
+  mutate(ozone = cut(
+    o3,
+    breaks = c(-0.1, 10, 42),
+    labels = c("Niskie", "Wysokie")
+  ))
+
+air |> 
+  count(ozone) |> 
+  mutate(prop = n/sum(n))
+```
+
+
+
+
+```{r}
+set.seed(222)
+data_split <- initial_split(data = air, prop = 3/4, strata = ozone)
+train_data <- training(data_split)
+test_data <-  testing(data_split)
+
+length(t(test_data))
+length(t(train_data))
+```
+
 
 
 ```{r}
 
+air_recipe <-
+  recipe(ozone ~ ., data = air) |>
+  update_role(date,new_role = "ID") |>  
+  step_date(date, features = c("month"))  |> 
+  step_dummy(all_nominal_predictors()) |> 
+  step_zv(all_predictors())
+
+
+
+air_recipe |> summary()
 ```
 
 
-
+```{r}
+air_recipe |> prep() |> bake(train_data) |> _[1:10,] |> DT::datatable()
+```
 
 ```{r}
+lr_mod <- 
+  logistic_reg() |> 
+  set_engine("glm")
 
+
+logi_work <- 
+  workflow() |> 
+  add_model(lr_mod) |> 
+  add_recipe(air_recipe)
+
+logi_work
+
+
+logi_fit <-  
+  logi_work |> 
+  fit(data = train_data)
+
+
+
+logi_fit |> 
+  extract_fit_parsnip() |> 
+  tidy()
+
+logi_fit |> 
+  extract_recipe()
 ```
 
 
-
 ```{r}
+predict(logi_fit, test_data, type = "prob")
 
+pred_test <- 
+  augment(logi_fit, test_data) |>
+  select(
+    -date,
+    -no2,
+    -nox,
+    -ws,
+    -so2,
+    -co,
+    -pm10,
+    -pm25,
+    -wd
+  )
+pred_test
+
+
+
+pred_test  |> 
+  roc_curve(truth = ozone, .pred_Niskie) |> 
+  autoplot()
 ```
