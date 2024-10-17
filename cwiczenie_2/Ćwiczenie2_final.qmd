@@ -3,6 +3,7 @@ title: "Ćwiczenie_2"
 author: "Gabriel Rączkowski"
 format: html
 editor: visual
+self-contained: true
 ---
 
 ```{r}
