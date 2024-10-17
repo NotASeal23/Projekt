@@ -1,4 +1,4 @@
 .Rhistory
 /.quarto/
-*.html
+./*/*.html
 .Rapp.history
