@@ -4,7 +4,11 @@ author: "Gabriel Rączkowski"
 format: html
 editor: visual
 self-contained: true
+editor_options: 
+  chunk_output_type: console
 ---
+
+MRZ: Uwzględnij uwagi z konspektu ćwiczenie 1, nie będę się powtarzał. 
 
 ```{r}
 #include
@@ -54,9 +58,10 @@ air[sample(1:nrow(air), size = 300, replace = F),] |>
   geom_point() +
   geom_smooth(method = "lm", se = T, formula = y ~ x) + 
   stat_cor(label.x = 10, label.y = 80) + 
-  stat_regline_equation(label.x = 10, label.y = 82) +
+  stat_regline_equation(label.x = 10, label.y = 86) +
   theme_bw()
 ```
+
 ```{r}
 air |>    
   ggplot(aes(date, o3)) +     
@@ -81,9 +86,6 @@ air |>
   mutate(prop = n/sum(n))
 ```
 
-
-
-
 ```{r}
 set.seed(222)
 data_split <- initial_split(data = air, prop = 3/4, strata = ozone)
@@ -94,13 +96,18 @@ length(t(test_data))
 length(t(train_data))
 ```
 
+Recipe, myślę, że można wykluczyć znacznie więcej zmiennych niż tylko date.
 
+Proponuję zestaw treningowy w recipe, a nie pełny.
+`o3` - musi być ID, bo to trochę bez sensu jest stosować, model będzie idelany, było takie pytanie na zajęciach
+
+Jeszcze jakie zmienne usunąć z zmiennych objaśniających.
 
 ```{r}
 
 air_recipe <-
-  recipe(ozone ~ ., data = air) |>
-  update_role(date,new_role = "ID") |>  
+  recipe(ozone ~ ., data = train_data) |>
+  update_role(date, o3, new_role = "ID") |>  
   step_date(date, features = c("month"))  |> 
   step_dummy(all_nominal_predictors()) |> 
   step_zv(all_predictors())
@@ -109,7 +116,6 @@ air_recipe <-
 
 air_recipe |> summary()
 ```
-
 
 ```{r}
 air_recipe |> prep() |> bake(train_data) |> _[1:10,] |> DT::datatable()
@@ -143,7 +149,6 @@ logi_fit |>
   extract_recipe()
 ```
 
-
 ```{r}
 predict(logi_fit, test_data, type = "prob")
 
@@ -168,3 +173,41 @@ pred_test  |>
   roc_curve(truth = ozone, .pred_Niskie) |> 
   autoplot()
 ```
+
+
+Nie obliczono parametrów 
+
+```{r}
+# roc_auc
+# accuracy()
+```
+
+```{r}
+test <- augment(logi_fit, new_data = test_data) 
+
+# wybór wiely metryk
+# patrz: https://yardstick.tidymodels.org/articles/metric-types.html
+
+
+multi <- metric_set(roc_auc, average_precision)
+
+# Zobacz jakie to proste 
+
+test |> 
+  mutate(month = lubridate::month(date)) |> 
+  multi(ozone, .pred_Niskie) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 2)
+
+
+test |> 
+  mutate(month = lubridate::month(date)) |> 
+  group_by(month) |> 
+  multi(ozone, .pred_Niskie) |> 
+  pivot_wider(names_from = .metric, values_from = .estimate) |> 
+  arrange(roc_auc) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 2)
+
+```
+

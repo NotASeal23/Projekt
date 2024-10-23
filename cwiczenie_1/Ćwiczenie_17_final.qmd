@@ -4,9 +4,18 @@ format: html
 editor: visual
 author: "Gabriel Rączkowski 416529"
 self-contained: true
+editor_options: 
+  chunk_output_type: console
 ---
 
+Bardzo mało zastosowań yaml, proszę się przyłożyć. Szczególnie, że generuje się html, przyjrzyj się dokładnie temu co wysłałem na teams.
+
+Nie ma żadnych ustawień `chunk`, ani globalnie, ani lokalnie.
+
 ```{r}
+#| message: false
+#| warning: false
+
 library(tidymodels)
 library(parsnip)
 library(rstanarm)
@@ -55,6 +64,8 @@ data = as.data.frame(data)
 GGally::ggpairs(data)
 ```
 
+Interesuj mnie dlaczego inny pakiet dla podziału danych ? Nie mam nic przeciwko nowym rozwiązaniom. Nie znam tego pakietu będę wdzięczny za jakieś uzasadnienie. Miłe, że napisał to Polak.
+
 ```{r}
 mask = caTools::sample.split(t(data[,1]),SplitRatio = 3/4)
 data_train = data[mask,] # ~83 okolo 83 danych
@@ -72,6 +83,8 @@ lm_fit
 
 lm_fit$fit |> summary() #miesiące mają mały wpływ na ozone
 ```
+
+Opracowany model zawiera zmienne nieistotne. Proszę opracować model, którego zmienne są istotne.
 
 ```{r}
 
@@ -101,4 +114,28 @@ ggplot(data_final,mapping = aes(x= .pred ,y=ozone ))+geom_point()+
 
 ggplot(data_final,mapping = aes(x= .pred ,y=ozone ))+geom_point()+
   geom_smooth(method = "lm",se = FALSE)
+```
+
+Do błędów proponuje pakiet
+
+```{r}
+test <- augment(lm_fit, new_data = data_test) 
+
+# Prosty przykład 
+test |> 
+  group_by(month) |> 
+  yardstick::rmse(ozone, .pred)
+
+# wybór wiely metryk
+# patrz: https://yardstick.tidymodels.org/articles/metric-types.html
+
+multi <- metric_set(mae, rmse, rsq, rsq_trad)
+
+# Zobacz jakie to proste 
+test |> 
+  group_by(month) |> 
+  multi(ozone, .pred) |> 
+  pivot_wider(names_from = .metric, values_from = .estimate)
+
+
 ```
