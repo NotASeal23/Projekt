@@ -8,7 +8,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-MRZ: Uwzględnij uwagi z konspektu ćwiczenie 1, nie będę się powtarzał. 
+MRZ: Uwzględnij uwagi z konspektu ćwiczenie 1, nie będę się powtarzał.
 
 ```{r}
 #include
@@ -98,8 +98,7 @@ length(t(train_data))
 
 Recipe, myślę, że można wykluczyć znacznie więcej zmiennych niż tylko date.
 
-Proponuję zestaw treningowy w recipe, a nie pełny.
-`o3` - musi być ID, bo to trochę bez sensu jest stosować, model będzie idelany, było takie pytanie na zajęciach
+Proponuję zestaw treningowy w recipe, a nie pełny. `o3` - musi być ID, bo to trochę bez sensu jest stosować, model będzie idelany, było takie pytanie na zajęciach
 
 Jeszcze jakie zmienne usunąć z zmiennych objaśniających.
 
@@ -174,8 +173,7 @@ pred_test  |>
   autoplot()
 ```
 
-
-Nie obliczono parametrów 
+Nie obliczono parametrów
 
 ```{r}
 # roc_auc
@@ -210,4 +208,3 @@ test |>
   gt::fmt_number(decimals = 2)
 
 ```
-
