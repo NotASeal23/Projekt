@@ -1,9 +1,29 @@
 ---
 title: "Ćwiczenie_2"
 author: "Gabriel Rączkowski"
-format: html
+format: 
+  html:
+    self-contained: true
+    theme:
+      light: cosmo
+      dark: darkly
+    fontsize: 1.0em
+    toc: true
+    toc-location: left
+    toc-title: "Spis tresci"
+    number-sections: true #numeracja naglowkow
+    code-fold: show #mozna kod zmniejszac
+    code-summary: "Ukryj/Pokaz kod"
+    code-tools: true
+    code-block-bg: "lightgrey"
+    code-block-border-left: "black" 
+    code-line-numbers: true
+    code-copy: false
+execute:
+  warning: false
+  echo: true
+  error: false
 editor: visual
-self-contained: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -11,6 +31,9 @@ editor_options:
 MRZ: Uwzględnij uwagi z konspektu ćwiczenie 1, nie będę się powtarzał.
 
 ```{r}
+#| message: false
+#| warning: false
+#| echo: false
 #include
 library(tidymodels) 
 library(skimr) 
@@ -107,6 +130,7 @@ Jeszcze jakie zmienne usunąć z zmiennych objaśniających.
 air_recipe <-
   recipe(ozone ~ ., data = train_data) |>
   update_role(date, o3, new_role = "ID") |>  
+  step_BoxCox(ws, nox, no2) |>  
   step_date(date, features = c("month"))  |> 
   step_dummy(all_nominal_predictors()) |> 
   step_zv(all_predictors())
@@ -171,13 +195,20 @@ pred_test
 pred_test  |> 
   roc_curve(truth = ozone, .pred_Niskie) |> 
   autoplot()
+
+pred_test |> 
+  roc_auc(truth = ozone, .pred_Niskie)
 ```
 
 Nie obliczono parametrów
 
 ```{r}
 # roc_auc
+pred_test |> 
+  roc_auc(truth = ozone, .pred_Niskie)
 # accuracy()
+pred_test |> 
+  accuracy(truth = ozone, .pred_class)
 ```
 
 ```{r}
