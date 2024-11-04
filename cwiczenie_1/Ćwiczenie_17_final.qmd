@@ -1,20 +1,45 @@
 ---
 title: "Ćwiczenie 1.7"
-format: html
+format: 
+  html:
+    self-contained: true
+    theme:
+      light: cosmo
+      dark: darkly
+    fontsize: 1.0em
+    toc: true
+    toc-location: left
+    toc-title: "Spis tresci"
+    number-sections: true
+    code-fold: show 
+    code-summary: "Ukryj/Pokaz kod"
+    code-tools: true
+    code-block-bg: "lightgrey"
+    code-block-border-left: "black" 
+    code-line-numbers: true
+    code-copy: false
+
 editor: visual
 author: "Gabriel Rączkowski 416529"
-self-contained: true
+
 editor_options: 
   chunk_output_type: console
+execute:
+  warning: false
+  echo: true
+  error: false
 ---
 
 Bardzo mało zastosowań yaml, proszę się przyłożyć. Szczególnie, że generuje się html, przyjrzyj się dokładnie temu co wysłałem na teams.
 
 Nie ma żadnych ustawień `chunk`, ani globalnie, ani lokalnie.
 
+- dodane
+
 ```{r}
 #| message: false
 #| warning: false
+#| echo: false
 
 library(tidymodels)
 library(parsnip)
@@ -23,6 +48,8 @@ library(readr)
 library(broom.mixed) 
 library(dotwhisker)  
 ```
+
+### Data Loading
 
 ```{r}
 colnames(airquality) <- tolower(colnames(airquality))
@@ -37,6 +64,9 @@ cor(corc) # sprawdzam korelacje, aby usunąć ewentualne skorelowane czynniki
 
 ```
 
+### Data Processing
+
+
 ```{r}
 
 data <-
@@ -46,6 +76,10 @@ data <-
   select(-day) |> 
   mutate(month = factor(month)) 
 
+```
+
+```{r}
+#| echo: false
 
 data %>%
   ggplot(aes(
@@ -57,7 +91,10 @@ data %>%
   geom_point() +
   geom_smooth(method = lm, se = F) +
   scale_color_viridis_d(option = "C", end = .9)
+  
+```
 
+```{r}
 glimpse(data)
 
 data = as.data.frame(data)
@@ -65,6 +102,10 @@ GGally::ggpairs(data)
 ```
 
 Interesuj mnie dlaczego inny pakiet dla podziału danych ? Nie mam nic przeciwko nowym rozwiązaniom. Nie znam tego pakietu będę wdzięczny za jakieś uzasadnienie. Miłe, że napisał to Polak.
+
+- Po prostu z przyzwyczajenia, zazwyczaj korzystam z tej właśnie funkcji
+
+### Model Fit
 
 ```{r}
 mask = caTools::sample.split(t(data[,1]),SplitRatio = 3/4)
@@ -78,13 +119,15 @@ lm_mod <-
 #robimy model
 lm_fit <-  
   lm_mod |>
-  fit(ozone ~ temp + solar.r + wind + month, data = data_train) #nie uwzględniamy interakcji miedzy zmiennymi
+  fit(ozone ~ temp + solar.r + wind, data = data_train) #nie uwzględniamy interakcji miedzy zmiennymi
 lm_fit 
 
 lm_fit$fit |> summary() #miesiące mają mały wpływ na ozone
 ```
 
 Opracowany model zawiera zmienne nieistotne. Proszę opracować model, którego zmienne są istotne.
+
+### Model Predict
 
 ```{r}
 
