@@ -1,0 +1,316 @@
+---
+title: "Ćwiczenie 3"
+format: 
+  html:
+    self-contained: true
+    theme:
+      light: cosmo
+      dark: darkly
+    fontsize: 1.0em
+    toc: true
+    toc-location: left
+    toc-title: "Spis tresci"
+    number-sections: true
+    code-fold: show 
+    code-summary: "Ukryj/Pokaz kod"
+    code-tools: true
+    code-block-bg: "lightgrey"
+    code-block-border-left: "black" 
+    code-line-numbers: true
+    code-copy: false
+editor: visual
+author: "Gabriel Rączkowski 416529"
+editor_options: 
+  chunk_output_type: console
+execute:
+  warning: false
+  echo: true
+  error: false
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: false
+#include
+library(tidymodels) 
+library(skimr) 
+library(GGally) 
+library(openair) 
+library(DT) 
+library(dplyr)
+library(ranger)
+tidymodels_prefer()
+
+```
+
+```{r}
+#ogladamy dane
+air <- mydata |> selectByDate(year = 2004) 
+air |> skim()
+air |> glimpse()
+
+
+corcc <-
+  air |>
+  as_tibble() |>
+  na.omit() |> 
+  select(-c(date)) 
+cor(corcc) # sprawdzam korelacje
+
+#wysoka korelacje maja:
+# no2 oraz nox z większością parametrów
+
+```
+
+```{r}
+air <- air |> na.omit()
+
+set.seed(222)
+air[sample(1:nrow(air), size = 300, replace = F),] |> 
+  select(nox, no2) |> 
+  ggpairs()
+```
+
+```{r}
+library(ggpubr)
+# wykres regresji liniowej, do sprawdzenia danych 
+set.seed(222)
+air[sample(1:nrow(air), size = 300, replace = F),] |> 
+  select(nox, no2) |> 
+  ggplot(aes(nox, no2)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = T, formula = y ~ x) + 
+  stat_cor(label.x = 10, label.y = 80) + 
+  stat_regline_equation(label.x = 10, label.y = 86) +
+  theme_bw()
+```
+
+```{r}
+air |>    
+  ggplot(aes(date, o3)) +     
+  geom_line() +     
+  theme_bw()
+
+air |> 
+  pull(o3) |> 
+  range() 
+
+
+air <-
+  air |>
+  mutate(ozone = cut(
+    o3,
+    breaks = c(-0.1, 10, 42),
+    labels = c("Niskie", "Wysokie")
+  ))
+
+air |> 
+  count(ozone) |> 
+  mutate(prop = n/sum(n))
+```
+
+```{r}
+set.seed(222)
+data_split <- initial_split(data = air, prop = 3/4, strata = ozone)
+train_data <- training(data_split)
+test_data <-  testing(data_split)
+
+length(t(test_data))
+length(t(train_data))
+
+
+
+vcv = vfold_cv(data = train_data, v = 10)
+mc = mc_cv(data = train_data, prop = 9/10, times = 10)
+bs = bootstraps(data = train_data, times = 5)
+```
+
+```{r}
+
+air_recipe <-
+  recipe(ozone ~ ., data = train_data) |>
+  update_role(date, o3, new_role = "ID") |>  
+  step_date(date, features = c("month"))  |> 
+  step_dummy(all_nominal_predictors()) |> 
+  step_zv(all_predictors())
+
+
+
+air_recipe |> summary()
+```
+
+```{r}
+air_recipe |> prep() |> bake(train_data) |> _[1:10,] |> DT::datatable()
+```
+
+```{r}
+lr_mod <- 
+  logistic_reg() |> 
+  set_engine("glm")
+
+rf_mod <- 
+  rand_forest() |> 
+  set_engine("ranger") |> 
+  set_mode("classification")
+
+
+logi_wf <- 
+  workflow() |> 
+  add_model(lr_mod) |> 
+  add_recipe(air_recipe)
+
+rf_wf <- 
+  workflow() |> 
+  add_model(rf_mod) |> 
+  add_recipe(air_recipe)
+
+
+rf_fit_vcv <- 
+  rf_wf |> 
+  fit_resamples(vcv) 
+
+rf_fit_bs <- 
+  rf_wf |> 
+  fit_resamples(bs) 
+
+rf_fit_mc <- 
+  rf_wf |> 
+  fit_resamples(mc)
+
+logi_fit_vcv <- 
+  logi_wf |> 
+  fit_resamples(vcv)
+
+logi_fit_bs <- 
+  logi_wf |> 
+  fit_resamples(bs)
+logi_fit_mc <- 
+  logi_wf |> 
+  fit_resamples(mc)
+
+```
+
+```{r}
+lw <- 
+  workflow() |> 
+  add_model(lr_mod) |> 
+  add_recipe(air_recipe)
+
+logi_fit <- 
+  lw |> 
+  fit(data=train_data)
+
+
+predict(logi_fit, test_data, type = "prob")
+
+pred_test <- 
+  augment(logi_fit, test_data) |>
+  select(
+    -date,
+    -no2,
+    -nox,
+    -ws,
+    -so2,
+    -co,
+    -pm10,
+    -pm25,
+    -wd
+  )
+pred_test
+
+
+
+pred_test  |> 
+  roc_curve(truth = ozone, .pred_Niskie) |> 
+  autoplot()
+```
+
+```{r}
+# roc_auc
+mwr <- bind_rows(
+  pred_test |>
+    roc_auc(truth = ozone, .pred_Niskie),
+  
+  pred_test |>
+    accuracy(truth = ozone, .pred_class)
+) |>
+  mutate(.approach = "no resampling")
+# accuracy()
+```
+
+```{r}
+
+m_rf_fit_vcv <- rf_fit_vcv|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "rf_fit_vcv")
+
+m_rf_fit_bs <- rf_fit_bs|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "rf_fit_bs")
+
+m_rf_fit_mc <- rf_fit_mc|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "rf_fit_mc")
+
+m_logi_fit_vcv <- logi_fit_vcv|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "logi_fit_vcv")
+
+m_logi_fit_bs <- logi_fit_bs|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "logi_fit_bs")
+
+
+m_logi_fit_mc <- logi_fit_mc|> 
+  collect_metrics() |> 
+  filter(.metric == "accuracy" | .metric == "roc_auc") |>
+  mutate(.approach = "logi_fit_mc")
+
+all_metrics <- bind_rows(
+  mwr,
+  m_rf_fit_vcv,
+  m_rf_fit_bs,
+  m_rf_fit_mc,
+  m_logi_fit_vcv,
+  m_logi_fit_bs,
+  m_logi_fit_mc
+)
+
+all_metrics |> knitr::kable(digits = 3)
+
+```
+
+```{r}
+test <- augment(logi_fit, new_data = test_data) 
+
+# wybór wiely metryk
+# patrz: https://yardstick.tidymodels.org/articles/metric-types.html
+
+
+multi <- metric_set(roc_auc, average_precision)
+
+# Zobacz jakie to proste 
+
+test |> 
+  mutate(month = lubridate::month(date)) |> 
+  multi(ozone, .pred_Niskie) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 2)
+
+
+test |> 
+  mutate(month = lubridate::month(date)) |> 
+  group_by(month) |> 
+  multi(ozone, .pred_Niskie) |> 
+  pivot_wider(names_from = .metric, values_from = .estimate) |> 
+  arrange(roc_auc) |> 
+  gt::gt() |> 
+  gt::fmt_number(decimals = 2)
+
+```
