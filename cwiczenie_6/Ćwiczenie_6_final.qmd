@@ -1,0 +1,243 @@
+---
+title: "Ćwiczenie 6"
+format: 
+  html:
+    self-contained: true
+    theme:
+      light: cosmo
+      dark: darkly
+    fontsize: 1.0em
+    toc: true
+    toc-location: left
+    toc-title: "Spis tresci"
+    number-sections: true
+    code-fold: show 
+    code-summary: "Ukryj/Pokaz kod"
+    code-tools: true
+    code-block-bg: "lightgrey"
+    code-block-border-left: "black" 
+    code-line-numbers: true
+    code-copy: false
+editor: visual
+author: "Gabriel Rączkowski 416529"
+editor_options: 
+  chunk_output_type: console
+execute:
+  warning: false
+  echo: true
+  error: false
+---
+
+```{r}
+#| message: false
+#| warning: false
+#| echo: false
+#include
+library(tidymodels) 
+library(skimr) 
+library(GGally) 
+library(openair) 
+library(DT) 
+library(dplyr)
+library(ranger)
+tidymodels_prefer()
+library(tidymodels)
+library(rpart)
+library(glmnet)
+library(rpart.plot)  
+library(vip)        
+```
+
+### Data preparation
+
+```{r}
+#moje dane 
+air <- mydata |> selectByDate(year = 2004)
+air <-
+    air |> na.omit()
+
+air <- 
+    air |> mutate(
+        wd = cut(
+            wd,
+            labels = seq(1, 16),
+            breaks = 16
+            
+        )
+    )
+
+set.seed(222)
+data_split <- initial_split(data = air, prop = 3/4, strata = o3)
+train_data <- training(data_split)
+test_data <-  testing(data_split)
+
+
+```
+
+
+### Models and grids
+
+```{r}
+#rand_forest
+#decision_tree
+#linear_reg
+
+
+
+
+dt_ts =
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune(),
+    min_n = tune()
+  ) |> 
+  set_engine("rpart") |> 
+  set_mode("regression")
+
+rf_ts = 
+  rand_forest(
+    mtry = tune(),
+    trees = tune(),
+    min_n = tune()
+  ) |> 
+  set_engine(
+    engine = "ranger"
+  ) |> 
+  set_mode("regression")
+  
+lr_ts = 
+  linear_reg(
+    penalty = tune(),
+    mixture = tune()
+  ) |> 
+  set_engine(
+    engine = "glmnet"
+  ) |> 
+  set_mode("regression")
+
+lr_grid <-
+    grid_regular(
+        penalty(),
+        mixture(),
+        levels = 3
+    )
+
+dt_grid <-
+    grid_regular(
+        cost_complexity(),
+        tree_depth(),
+        min_n(),
+        levels = 2
+    )
+
+rf_grid <-
+    grid_regular(
+        mtry(range=c(1, 8)),
+        trees(),
+        min_n(),
+        levels = 2
+    )
+```  
+
+
+### Recipes
+
+```{r}  
+
+
+
+air_recipe <-
+  recipe(o3 ~ ., data = train_data) |>
+  update_role(date, wd, new_role = "ID") |>  
+  step_date(date, features = c("month"))  |> 
+  step_dummy(all_nominal_predictors()) |> 
+  step_zv(all_predictors())
+
+workf_lr  <- 
+  workflow() |> 
+  add_model(lr_ts) |> 
+  add_recipe(air_recipe)
+
+workf_rf  <- 
+  workflow() |> 
+  add_model(rf_ts) |> 
+  add_recipe(air_recipe)
+
+workf_dt  <- 
+  workflow() |> 
+  add_model(dt_ts) |> 
+  add_recipe(air_recipe)
+
+
+```
+### Fitting data
+
+```{r}
+folds <- vfold_cv(train_data)
+
+
+
+fit_rf <-
+  workf_rf |>
+  tune_grid(
+    resamples = folds,
+    grid = rf_grid,
+    metrics = yardstick::metric_set(mae)
+  )
+
+
+fit_dt <-
+  workf_dt |>
+  tune_grid(
+    resamples = folds,
+    grid = dt_grid,
+    metrics = yardstick::metric_set(mae)
+  )
+
+fit_lr <-
+  workf_lr |>
+  tune_grid(
+    resamples = folds,
+    grid = lr_grid,
+    metrics = yardstick::metric_set(mae)
+  )
+
+
+```
+
+### Selekcja najlepszego modelu
+```{r}
+
+lr_model <- select_best(fit_lr, metric ="mae")
+dt_model <- select_best(fit_dt, metric ="mae")
+rf_model <- select_best(fit_rf, metric ="mae") #
+
+lr_bmod <-
+    workf_lr |>
+    finalize_workflow(lr_model)
+
+dt_bmod <-
+    workf_dt |>
+    finalize_workflow(dt_model)
+
+rf_bmod <-
+    workf_rf |>
+    finalize_workflow(rf_model)
+```
+
+
+```{r}
+
+lr_fit <-
+    lr_bmod |>
+    last_fit(split = data_split)
+
+dt_fit <-
+    dt_bmod |>
+    last_fit(split = data_split)
+
+rf_fit <-
+    rf_bmod |>
+    last_fit(split = data_split)
+
+```
