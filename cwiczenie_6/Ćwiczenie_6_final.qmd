@@ -56,6 +56,14 @@ air <- mydata |> selectByDate(year = 2004)
 air <-
     air |> na.omit()
 
+corcc <-
+  air |>
+  as_tibble() |>
+  na.omit() |> 
+  select(-c(date)) 
+cor(corcc) # sprawdzam korelacje
+
+
 air <- 
     air |> mutate(
         wd = cut(
@@ -145,10 +153,10 @@ rf_grid <-
 ```{r}  
 
 
-
+#nie uzywamy zmiennych, ktore sa silnie skorelowane
 air_recipe <-
   recipe(o3 ~ ., data = train_data) |>
-  update_role(date, wd, new_role = "ID") |>  
+  update_role(date,nox,no2,pm10, new_role = "ID") |>  
   step_date(date, features = c("month"))  |> 
   step_dummy(all_nominal_predictors()) |> 
   step_zv(all_predictors())
@@ -226,18 +234,56 @@ rf_bmod <-
 ```
 
 
+
+
 ```{r}
+final_lr <- finalize_model(lr_ts, lr_model)
+final_dt <- finalize_model(dt_ts, dt_model)
+final_rf <- finalize_model(lr_ts, rf_model)
 
-lr_fit <-
-    lr_bmod |>
-    last_fit(split = data_split)
 
-dt_fit <-
-    dt_bmod |>
-    last_fit(split = data_split)
+final_lr_wf <- workflow() |> 
+  add_model(final_lr) |> 
+  add_recipe(air_recipe)
 
-rf_fit <-
-    rf_bmod |>
-    last_fit(split = data_split)
+final_dt_wf <- workflow() |> 
+  add_model(final_dt) |> 
+  add_recipe(air_recipe)
 
+final_rf_wf <- workflow() |> 
+  add_model(final_rf) |> 
+  add_recipe(air_recipe)
+
+
+
+
+lr_ffit <- final_lr_wf |> 
+  fit(data = train_data)
+
+dt_ffit <- final_dt_wf |> 
+  fit(data = train_data)
+
+rf_ffit <- final_rf_wf |> 
+  fit(data = train_data)
+
+preds_lr <- lr_ffit |> predict(test_data) |> bind_cols(test_data)
+preds_dt <- dt_ffit |> predict(test_data) |> bind_cols(test_data)
+preds_rf <- rf_ffit |> predict(test_data) |> bind_cols(test_data)
+
+
+
+lr_metrics <- preds_lr |> 
+  metrics(truth = o3, estimate = .pred)
+
+dt_metrics <- preds_dt |> 
+  metrics(truth = o3, estimate = .pred)
+
+rf_metrics <- preds_rf |> 
+  metrics(truth = o3, estimate = .pred)
+
+lr_metrics |> print()
+dt_metrics |> print()
+rf_metrics |> print()
+#najlepszą metrykę mae ma model drzewa decyzyjnego z parametrami:
+print(dt_model)
 ```
